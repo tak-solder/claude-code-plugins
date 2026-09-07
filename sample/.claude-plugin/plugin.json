@@ -1,0 +1,8 @@
+{
+  "name": "sample",
+  "version": "0.0.1",
+  "description": "sample plugin",
+  "author": {
+    "name": "tak-solder"
+  }
+}

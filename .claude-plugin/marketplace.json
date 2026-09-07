@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "tak-solder-plugins",
+  "description": "tak-solderが開発・管理しているプラグイン",
+  "owner": {
+    "name": "tak-solder"
+  },
+  "plugins": [
+    {
+      "name": "sample",
+      "source": "./sample",
+      "description": "sample plugin"
+    }
+  ]
+}
