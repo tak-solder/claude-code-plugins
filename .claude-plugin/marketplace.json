@@ -10,6 +10,11 @@
       "name": "sample",
       "source": "./sample",
       "description": "sample plugin"
+    },
+    {
+      "name": "deny-claude-branch",
+      "source": "./deny-claude-branch",
+      "description": "claude/ プレフィックスのブランチへの git commit をブロックするプラグイン"
     }
   ]
 }
