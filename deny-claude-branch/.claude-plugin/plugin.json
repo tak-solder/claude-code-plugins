@@ -1,0 +1,8 @@
+{
+  "name": "deny-claude-branch",
+  "version": "1.0.0",
+  "description": "claude/ プレフィックスのブランチへの git commit をブロックするプラグイン",
+  "author": {
+    "name": "tak-solder"
+  }
+}
