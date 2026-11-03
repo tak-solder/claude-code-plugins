@@ -10,6 +10,7 @@
 # 単価はランナーのラベルから推定する（ubuntu-slim: $0.002 / *-arm: $0.005 / その他の ubuntu: $0.006）。
 # それ以外のランナー（self-hosted、Windows、macOS など）は費用を "?" と表示する。
 # 課金分数はジョブごとに 1 分単位で切り上げる。
+# 再実行（re-run）した実行は、前の試行（attempt）のジョブも課金対象として集計する（列 run#attempt で区別できる）。
 set -euo pipefail
 
 # 対象リポジトリ（owner/repo）。GH_REPO があればそれを使い、なければ origin のリモート URL から求める
@@ -21,15 +22,28 @@ else
 fi
 default_branch() { gh api "repos/$REPO" --jq .default_branch; }
 
-# ジョブ一覧を TSV（workflow, job, seconds, label, conclusion, run_id）で出力する
+# ジョブ一覧を TSV（workflow, job, seconds, label, conclusion, run_id#attempt）で出力する。
+# - filter=all で再実行前の試行（attempt）のジョブも含める（どの試行も課金されるため）
+# - 1 ページ 100 件のため、大きなマトリクスでも漏れないよう全ページを取得する
+#   （--paginate は環境によって Link ヘッダの URL を辿れないことがあるため、page を自前で進める）
 jobs_of_run() {
-  gh api "repos/$REPO/actions/runs/$1/jobs?per_page=100" --jq '
-    .jobs[]
-    | select(.started_at != null and .completed_at != null)
-    | [.workflow_name, .name,
-       (((.completed_at | fromdate) - (.started_at | fromdate)) | tostring),
-       (.labels | join(",")), (.conclusion // ""), (.run_id | tostring)]
-    | @tsv'
+  local page=1 out count per="${MEASURE_PER_PAGE:-100}"  # MEASURE_PER_PAGE はページ送りの動作確認用
+  while :; do
+    # 1 回の呼び出しで、ジョブの行と、このページの件数（最終行の "#COUNT<TAB>n"）を出す
+    out=$(gh api "repos/$REPO/actions/runs/$1/jobs?filter=all&per_page=$per&page=$page" --jq '
+      (.jobs | length) as $n
+      | ((.jobs[]
+          | select(.started_at != null and .completed_at != null)
+          | [.workflow_name, .name,
+             (((.completed_at | fromdate) - (.started_at | fromdate)) | tostring),
+             (.labels | join(",")), (.conclusion // ""), "\(.run_id)#\(.run_attempt // 1)"]
+          | @tsv),
+         "#COUNT\t\($n)")')
+    count=$(printf '%s\n' "$out" | awk -F'\t' '$1 == "#COUNT" { print $2 }')
+    printf '%s\n' "$out" | grep -v '^#COUNT' || true
+    [ "${count:-0}" -lt "$per" ] && break
+    page=$((page + 1))
+  done
 }
 
 # TSV に課金分数と費用を付けて表示し、ジョブ別の平均を出す
@@ -44,7 +58,7 @@ summarize() {
     {
       sec = $3 + 0; min = int((sec + 59) / 60); if (min < 1) min = 1
       p = price($4); cost = (p < 0) ? "?" : sprintf("$%.4f", min * p)
-      printf "%s\t%s\t%ds\t%dmin\t%s\t%s\t%s\trun:%s\n", $1, $2, sec, min, cost, $4, $5, $6
+      printf "%s\t%s\t%ds\t%dmin\t%s\t%s\t%s\trun#attempt:%s\n", $1, $2, sec, min, cost, $4, $5, $6
       k = $1 " / " $2 " [" $4 "]"
       n[k]++; s[k] += sec; m[k] += min
       if (p >= 0) c[k] += min * p; else unk[k] = 1

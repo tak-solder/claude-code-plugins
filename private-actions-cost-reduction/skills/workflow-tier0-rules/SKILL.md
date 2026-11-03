@@ -30,7 +30,8 @@ user-invocable: false
 
 GitHub Actions の既定のタイムアウトは 360 分で、ジョブがハングすると最大 6 時間分が課金される。
 
-- すべてのジョブに `timeout-minutes` を設定する。
+- `runs-on` で実行するすべてのジョブに `timeout-minutes` を設定する。
+- **再利用可能ワークフローを呼び出すジョブ（`jobs.<id>.uses`）には `timeout-minutes` を書かない。** 呼び出しジョブで使えるキーは限られていて（`name` / `uses` / `with` / `secrets` / `strategy` / `needs` / `if` / `permissions` / `concurrency`）、書くとワークフローが構文エラーで起動しなくなる。代わりに、呼び出される側のワークフロー（`on: workflow_call`）のジョブに設定する。呼び出される側が別リポジトリにあり変更できない場合は、その旨を報告する。
 - 値は **通常の実行時間の 3〜5 倍** を目安にし、最小でも 5 分とする。通常の実行時間が分からない場合は、直近の実行履歴（`gh run list` / `gh run view`）から確認する。新規ジョブで履歴がない場合は、処理内容から見積もり、根拠をコメントに残す。
 - コメントで通常の実行時間を書いておく（例：`# 通常は 2〜3 分で終わる`）。後で実行時間が延びたときに見直せるようにするため。
 - `ubuntu-slim` のジョブは 15 分を超えると強制終了される（`timeout-minutes` では延ばせない）。15 分を超える値を設定しない。
@@ -43,19 +44,23 @@ GitHub Actions の既定のタイムアウトは 360 分で、ジョブがハン
 
   ```yaml
   concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    # PR は ref ごとに 1 グループにまとめ、古い実行をキャンセルする。
+    # PR 以外（デフォルトブランチへの push など）は実行ごとに別グループにし、すべてのコミットを検証する
+    group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+    cancel-in-progress: true
   ```
 
-  `cancel-in-progress` を PR のときだけ `true` にすることで、デフォルトブランチへの push の実行はキャンセルせず、全コミットを検証する。
+  `cancel-in-progress: false` にするだけでは、全コミットの検証にはならない。同じグループでは実行中のものが 1 件、待機中のものが 1 件までで、新しい実行が来ると **待機中の実行はキャンセルされて置き換えられる**。そのため、連続して push すると途中のコミットが検証されない。PR 以外の実行を `github.run_id` で別グループにすることで、キャンセルも置き換えも起きないようにする。
 - `pull_request_target` では `github.ref` がベースブランチを指すため、`group` に PR 番号（`${{ github.event.pull_request.number }}`）を使う。
-- **デプロイ・リリース・外部への書き込みを行うワークフローは、途中でキャンセルしない。** `cancel-in-progress: false` にして直列化する。
+- **デプロイ・リリース・外部への書き込みを行うワークフローは、実行中のものをキャンセルしない。** `cancel-in-progress: false` にして直列化する。
 
   ```yaml
   concurrency:
     group: ${{ github.workflow }}
     cancel-in-progress: false
   ```
+
+  この設定でも、待機中の実行は新しい実行に置き換えられるため、連続して push すると途中のコミットはデプロイされず、最新のコミットだけがデプロイされる。すべてのコミットを順番にデプロイする必要があるワークフロー（リリースごとにタグやパッケージを作るものなど）では、この設定を使わず、既存の方式のままにしてユーザーに確認する。
 
 - 既存の `concurrency` がある場合は、上記の方針と矛盾しない限りそのままにする。
 
@@ -70,6 +75,8 @@ GitHub Actions の既定のタイムアウトは 360 分で、ジョブがハン
 - メモリ 5GB で足りる
 - CPU を並列で使い切らない
 - デプロイ先と同じ CPU アーキテクチャでのビルドを必要としない
+
+再利用可能ワークフローを呼び出すジョブ（`jobs.<id>.uses`）には `runs-on` を書けないため、呼び出される側のジョブで判断する。
 
 1 つでも満たさない、または判断できないジョブは、`ubuntu-slim` にしない（既存のランナーのまま）。重いジョブのランナー変更は、このルールの範囲外とする（`/private-actions-cost-reduction` で検証しながら行う）。
 
