@@ -15,6 +15,11 @@
       "name": "deny-claude-branch",
       "source": "./deny-claude-branch",
       "description": "claude/ プレフィックスのブランチへの git commit をブロックするプラグイン"
+    },
+    {
+      "name": "private-actions-cost-reduction",
+      "source": "./private-actions-cost-reduction",
+      "description": "プライベートリポジトリの GitHub Actions の実行コストを下げるためのルールと改善コマンド"
     }
   ]
 }
