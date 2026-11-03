@@ -1,0 +1,8 @@
+{
+  "name": "private-actions-cost-reduction",
+  "version": "1.0.0",
+  "description": "プライベートリポジトリの GitHub Actions の実行コストを下げるためのルールと改善コマンド",
+  "author": {
+    "name": "tak-solder"
+  }
+}
