@@ -28,7 +28,16 @@
 - **リスク**
   - `paths` の書き漏れで、必要な CI が走らない。依存関係のファイル（lockfile、ビルド設定、ワークフロー自身）を必ず含める。
   - `paths` で止まったワークフローのジョブを branch protection の required checks にしていると、「待機中」のままでマージできなくなる。
-    `gh api repos/{owner}/{repo}/branches/{default}/protection` で required checks を確認し、該当する場合は `paths` を使わずにユーザーに相談する。
+    必須チェックは、従来の branch protection と ruleset（リポジトリ・組織）の両方で設定できるため、両方を確認する。該当する場合は `paths` を使わずにユーザーに相談する。
+
+    ```bash
+    # branch protection の必須チェック（未設定なら 404。リポジトリの管理者権限がないと 403 になる）
+    gh api "repos/$repo/branches/$branch/protection/required_status_checks" --jq '.checks[].context'
+    # ブランチに適用される ruleset（組織の ruleset を含む）の必須チェック
+    gh api "repos/$repo/rules/branches/$branch" --jq '.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context'
+    ```
+
+    branch protection が 403 などで確認できない場合は、必須チェックがないと推測せず、ユーザーに確認する。
   - 作業ブランチ上の不具合に気づくのが遅れる。
 
 ### 1-2. キャッシュ

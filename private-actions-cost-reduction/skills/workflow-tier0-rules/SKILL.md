@@ -70,6 +70,7 @@ GitHub Actions の既定のタイムアウトは 360 分で、ジョブがハン
 
 次の条件を **すべて** 満たすジョブは `runs-on: ubuntu-slim` にする。
 
+- 現在、GitHub ホスト型の Linux ランナー（`ubuntu-latest` / `ubuntu-24.04` など）で動いている。Windows・macOS・self-hosted・larger runner のジョブは対象外（OS 固有の機能や、セルフホスト環境だけにあるツール・ネットワーク・認証情報に依存している可能性があるため）
 - 数分以内に終わる（ラベル付け、フォーマット、通知、タグ付け、軽い lint など）
 - Docker を使わない（`docker` コマンド、`services:`、`container:`、Docker を内部で使うツールを含まない）
 - メモリ 5GB で足りる
